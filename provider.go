@@ -1,31 +1,57 @@
-// Package libdnstemplate implements a DNS record management client compatible
-// with the libdns interfaces for <PROVIDER NAME>. TODO: This package is a
-// template only. Customize all godocs for actual implementation.
-package libdnstemplate
+// Package miab implements a DNS record management client compatible
+// with the libdns interfaces for https://mailinabox.email/ custom DNS Endpoints.
+// The mailinabox DNS API is limited in that it only works with one zone.
+package miab
 
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/libdns/libdns"
+	miab "github.com/luv2code/gomiabdns"
 )
 
-// TODO: Providers must not require additional provisioning steps by the callers; it
-// should work simply by populating a struct and calling methods on it. If your DNS
-// service requires long-lived state or some extra provisioning step, do it implicitly
-// when methods are called; sync.Once can help with this, and/or you can use a
-// sync.(RW)Mutex in your Provider struct to synchronize implicit provisioning.
-
-// Provider facilitates DNS record manipulation with <TODO: PROVIDER NAME>.
+// Provider facilitates DNS record manipulation with Mail-In-A-Box.
 type Provider struct {
-	// TODO: put config fields here (with snake_case json
-	// struct tags on exported fields), for example:
-	APIToken string `json:"api_token,omitempty"`
+	// APIURL is the URL provided by the mailinabox admin interface, found
+	// on your box here: https://box.[your-domain.com]/admin#custom_dns
+	// https://box.[your-domain.com]/admin/dns/custom
+	APIURL string `json:"api_url,omitempty"`
+	// EmailAddress of an admin account.
+	// It's recommended that a dedicated account
+	// be created especially for managing DNS.
+	EmailAddress string `json:"email_address,omitempty"`
+	// Password of the admin account that corresponds to the email.
+	Password string `json:"password,omitempty"`
+}
+
+func (p *Provider) getClient() *miab.Client {
+	return miab.New(p.APIURL, p.EmailAddress, p.Password)
 }
 
 // GetRecords lists all the records in the zone.
 func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record, error) {
-	return nil, fmt.Errorf("TODO: not implemented")
+	if !strings.Contains(p.APIURL, zone) {
+		return nil, fmt.Errorf("This DNS provider (%s) does not control the specified zone (%s)", p.APIURL, zone)
+	}
+	client := p.getClient()
+	miabRecords, err := client.GetHosts(ctx, "", "")
+	if err != nil {
+		return nil, err
+	}
+	libDNSRecords := []libdns.Record{}
+	for _, mr := range miabRecords {
+		partialName := strings.ReplaceAll(mr.QualifiedName, zone, "")
+		partialName = partialName[:len(partialName)-1] // trim the trailing period.
+		libDNSRecords = append(libDNSRecords, libdns.Record{
+			ID:    mr.QualifiedName,
+			Type:  string(mr.RecordType),
+			Name:  partialName,
+			Value: mr.Value,
+		})
+	}
+	return libDNSRecords, nil
 }
 
 // AppendRecords adds records to the zone. It returns the records that were added.

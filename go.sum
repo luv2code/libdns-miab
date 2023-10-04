@@ -1,2 +1,4 @@
 github.com/libdns/libdns v0.2.1 h1:Wu59T7wSHRgtA0cfxC+n1c/e+O3upJGWytknkmFEDis=
 github.com/libdns/libdns v0.2.1/go.mod h1:yQCXzk1lEZmmCPa857bnk4TsOiqYasqpyOEeSObbb40=
+github.com/luv2code/gomiabdns v0.0.0-20231004034140-fc94bf3eb2d2 h1:2gyCrDVpnLV+AXuI+pIKBpOmpP2C1MO9xV4h0HtB+Y8=
+github.com/luv2code/gomiabdns v0.0.0-20231004034140-fc94bf3eb2d2/go.mod h1:FwNl4na3jXPrIs0SUhT7H583ophEBishPFn+y6H/O1k=

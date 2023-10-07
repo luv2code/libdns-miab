@@ -30,19 +30,25 @@ type Provider struct {
 func (p *Provider) getClient() *miab.Client {
 	return miab.New(p.APIURL, p.EmailAddress, p.Password)
 }
+
+func removeTrailingDot(zone string) string {
+	return zone[:len(zone)-1]
+}
 func (p *Provider) zoneCheck(zone string) error {
-	if !strings.Contains(p.APIURL, zone[:len(zone)-1]) {
+	zone = removeTrailingDot(zone)
+	if !strings.Contains(p.APIURL, removeTrailingDot(zone)) {
 		return fmt.Errorf("This DNS provider (%s) does not control the specified zone (%s)", p.APIURL, zone)
 	}
 	return nil
 }
 func toLibDnsRecords(zone string, miabRecords []miab.DNSRecord) []libdns.Record {
 	libDNSRecords := []libdns.Record{}
+	zone = removeTrailingDot(zone)
 	for _, mr := range miabRecords {
 		partialName := strings.ReplaceAll(mr.QualifiedName, zone, "")
-		partialName = partialName[:len(partialName)-1] // trim the trailing period.
+		partialName = removeTrailingDot(partialName)
 		libDNSRecords = append(libDNSRecords, libdns.Record{
-			ID:    mr.QualifiedName,
+			ID:    mr.QualifiedName + ".",
 			Type:  string(mr.RecordType),
 			Name:  partialName,
 			Value: mr.Value,
@@ -69,6 +75,7 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 	if err := p.zoneCheck(zone); err != nil {
 		return nil, err
 	}
+	zone = removeTrailingDot(zone)
 	client := p.getClient()
 	for _, r := range records {
 		if err := client.AddHost(ctx, r.Name+"."+zone, gomiabdns.RecordType(r.Type), r.Value); err != nil {
@@ -84,6 +91,7 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 	if err := p.zoneCheck(zone); err != nil {
 		return nil, err
 	}
+	zone = removeTrailingDot(zone)
 	client := p.getClient()
 	for _, r := range records {
 		if err := client.UpdateHost(ctx, r.Name+"."+zone, gomiabdns.RecordType(r.Type), r.Value); err != nil {
@@ -98,6 +106,7 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 	if err := p.zoneCheck(zone); err != nil {
 		return nil, err
 	}
+	zone = removeTrailingDot(zone)
 	client := p.getClient()
 	for _, r := range records {
 		if err := client.DeleteHost(ctx, r.Name+"."+zone, gomiabdns.RecordType(r.Type), r.Value); err != nil {

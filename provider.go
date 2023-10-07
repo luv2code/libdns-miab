@@ -31,7 +31,7 @@ func (p *Provider) getClient() *miab.Client {
 	return miab.New(p.APIURL, p.EmailAddress, p.Password)
 }
 func (p *Provider) zoneCheck(zone string) error {
-	if !strings.Contains(p.APIURL, zone) {
+	if !strings.Contains(p.APIURL, zone[:len(zone)-1]) {
 		return fmt.Errorf("This DNS provider (%s) does not control the specified zone (%s)", p.APIURL, zone)
 	}
 	return nil

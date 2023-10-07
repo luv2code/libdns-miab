@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/libdns/libdns"
+	"github.com/luv2code/gomiabdns"
 	miab "github.com/luv2code/gomiabdns"
 )
 
@@ -29,17 +30,13 @@ type Provider struct {
 func (p *Provider) getClient() *miab.Client {
 	return miab.New(p.APIURL, p.EmailAddress, p.Password)
 }
-
-// GetRecords lists all the records in the zone.
-func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record, error) {
+func (p *Provider) zoneCheck(zone string) error {
 	if !strings.Contains(p.APIURL, zone) {
-		return nil, fmt.Errorf("This DNS provider (%s) does not control the specified zone (%s)", p.APIURL, zone)
+		return fmt.Errorf("This DNS provider (%s) does not control the specified zone (%s)", p.APIURL, zone)
 	}
-	client := p.getClient()
-	miabRecords, err := client.GetHosts(ctx, "", "")
-	if err != nil {
-		return nil, err
-	}
+	return nil
+}
+func toLibDnsRecords(zone string, miabRecords []miab.DNSRecord) []libdns.Record {
 	libDNSRecords := []libdns.Record{}
 	for _, mr := range miabRecords {
 		partialName := strings.ReplaceAll(mr.QualifiedName, zone, "")
@@ -51,23 +48,63 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 			Value: mr.Value,
 		})
 	}
-	return libDNSRecords, nil
+	return libDNSRecords
+}
+
+// GetRecords lists all the records in the zone.
+func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record, error) {
+	if err := p.zoneCheck(zone); err != nil {
+		return nil, err
+	}
+	client := p.getClient()
+	miabRecords, err := client.GetHosts(ctx, "", "")
+	if err != nil {
+		return nil, err
+	}
+	return toLibDnsRecords(zone, miabRecords), nil
 }
 
 // AppendRecords adds records to the zone. It returns the records that were added.
 func (p *Provider) AppendRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	return nil, fmt.Errorf("TODO: not implemented")
+	if err := p.zoneCheck(zone); err != nil {
+		return nil, err
+	}
+	client := p.getClient()
+	for _, r := range records {
+		if err := client.AddHost(ctx, r.Name+"."+zone, gomiabdns.RecordType(r.Type), r.Value); err != nil {
+			return nil, err
+		}
+	}
+	return records, nil
 }
 
 // SetRecords sets the records in the zone, either by updating existing records or creating new ones.
 // It returns the updated records.
 func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	return nil, fmt.Errorf("TODO: not implemented")
+	if err := p.zoneCheck(zone); err != nil {
+		return nil, err
+	}
+	client := p.getClient()
+	for _, r := range records {
+		if err := client.UpdateHost(ctx, r.Name+"."+zone, gomiabdns.RecordType(r.Type), r.Value); err != nil {
+			return nil, err
+		}
+	}
+	return records, nil
 }
 
 // DeleteRecords deletes the records from the zone. It returns the records that were deleted.
 func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	return nil, fmt.Errorf("TODO: not implemented")
+	if err := p.zoneCheck(zone); err != nil {
+		return nil, err
+	}
+	client := p.getClient()
+	for _, r := range records {
+		if err := client.DeleteHost(ctx, r.Name+"."+zone, gomiabdns.RecordType(r.Type), r.Value); err != nil {
+			return nil, err
+		}
+	}
+	return records, nil
 }
 
 // Interface guards
